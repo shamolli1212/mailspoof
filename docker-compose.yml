@@ -1,0 +1,61 @@
+version: "3.5"
+services:
+  
+  redis:
+    image: redis:alpine3.13
+    container_name: redis
+    restart: always
+    ports:
+        - "6379"
+    networks:
+        - phish_net
+  
+  rspamd:
+    image: 6labs/mail_spoofer_rspamd:0.2.3
+    container_name: rspamd
+    volumes:
+      - ./rspamd/lib/dkim:/var/lib/rspamd/dkim
+    env_file:
+      - 'settings.env'
+    depends_on:
+      - redis
+    networks:
+      - phish_net
+
+  postfix:
+    image: 6labs/mail_spoofer_postfix:0.2.3
+    container_name: postfix
+    env_file:
+      - 'settings.env'
+    depends_on:
+      - rspamd
+    ports:
+      - "25"
+    networks:
+      - phish_net
+
+  gophish:
+    image: gophish/gophish:0.9.0
+    depends_on:
+      - postfix
+      - caddy
+    networks:
+      - phish_net
+
+  caddy:
+    image: 6labs/mail_spoofer_caddy:0.2.3
+    container_name: caddy
+    volumes:
+      - ./caddy/data:/data/caddy
+    env_file:
+      - 'settings.env'
+    ports:
+      - "80:80"
+      - "443:443"
+      - "3333:3333"
+    networks:
+      - phish_net
+
+networks:
+  phish_net:
+    name: phish_net
